@@ -5,6 +5,9 @@ TagManager:
   serializedVersion: 2
   tags:
   - Wall
+  - Hiding Zone
+  - SpawnArea
+  - EndArea
   layers:
   - Default
   - TransparentFX
@@ -19,8 +22,8 @@ TagManager:
   - Ground
   - Wall
   - 
-  - 
-  - 
+  - Hiding Zone
+  - Out of Bounds
   - 
   - 
   - 
