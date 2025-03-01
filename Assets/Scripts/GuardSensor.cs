@@ -26,7 +26,12 @@ public class GuardSensor : MonoBehaviour
             // End Game
             sceneController.GameOver();
         }
-        if(other.gameObject.tag == "Wall")
+
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.gameObject.tag == "BounceTrigger")
         {
             Debug.Log("Roomba Collided with Wall");
             // Bounce the Guard off the wall

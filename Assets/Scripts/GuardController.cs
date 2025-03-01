@@ -14,7 +14,13 @@ public class GuardController : MonoBehaviour
     public float minRotationAmount = 15f; // The minimum value of the amount the guard can rotate after hitting a wall
     public float maxRotationAmount = 90f; // The maximum value of the amount the guard can rotate after hitting a wall
     public float bounceInterval = 2f; // The amount of time between bounces, prvents the guard from constantly adjusting roation while against a wall
+    public float backUpDistance = 1f; // The amount of distance the guard will back up after initiating a bounce. Prevents the guard from getting stuck if they don't rotate enough
     private bool isBouncing = false; // Determines if the guard is currently bouncing to prevent the method from being called repeatedly
+
+    [Header("Stationary Timer Settings")]
+    private float stationaryTime = 5f; // Time in seconds before forvibly rotating if the guard is stationary
+    private float stationaryTimer = 0f; // Timer to track how long the guard has been stationary
+    private bool isMoving = false; // Determines if the guard is currently moving
 
     private Vector3 forwardDirection; // The direction the guard is facing and moving in
     private Vector3 lastDirection; // The last direction the guard was facing before losing sight of the target
@@ -48,6 +54,31 @@ public class GuardController : MonoBehaviour
         if(isBouncing)
         {
             return;
+        }
+
+        // Track if the guard is moving or stationary
+        // If the velocity is greater than a small threshold, the guard is moving
+        if (agent.velocity.magnitude > 0.1f) 
+        {
+            isMoving = true;
+            // Reset the stationary timer if the guard is moving
+            stationaryTimer = 0f; 
+        }
+        else
+        {
+            isMoving = false;
+            // Increment the stationary timer if the guard is stationary
+            stationaryTimer += Time.deltaTime; 
+        }
+
+        // Check if the guard has been stationary for 5 seconds
+        if (!isMoving && stationaryTimer >= stationaryTime)
+        {
+            Debug.Log("Guard is stuck, performing forced rotation!");
+            // Perform a rotation to stop the guard from being stuck
+            StartCoroutine(Unstuck());
+            // Reset the timer after the turn
+            stationaryTimer = 0f; 
         }
 
         // Check distance to target
@@ -112,13 +143,11 @@ public class GuardController : MonoBehaviour
     public void Bounce()
     {
         Debug.Log("Starting Bounce");
-        // If the guard collides with a wall
+        // If the guard is not already bouncing
         if (!isBouncing)
         {
             // Set isBouncing to true to prevent repeated bounces
             isBouncing = true;
-            // Prevent Guard from moving during bounce
-            agent.isStopped = true;
             // Start Rotating randomly
             StartCoroutine(RotateRandomly());
         }
@@ -127,6 +156,16 @@ public class GuardController : MonoBehaviour
     // Rotates the guard a random amount within a set range
     private IEnumerator RotateRandomly()
     {
+        // Move the guard backwards by backUpDistance
+        Vector3 backUpPosition = transform.position - transform.forward * backUpDistance;
+        agent.SetDestination(backUpPosition);
+
+        // Wait until the guard has moved backwards
+        yield return new WaitUntil(() => Vector3.Distance(transform.position, backUpPosition) < 0.1f);
+
+        // Prevent Guard from moving during bounce
+        agent.isStopped = true;
+
         // Randomly choose whether to rotate left (-1) or right (1)
         int rotationDirection = Random.Range(0, 2) == 0 ? -1 : 1;
 
@@ -155,5 +194,31 @@ public class GuardController : MonoBehaviour
         // Enable rotation after the delay
         agent.isStopped = false;
         isBouncing = false;
+    }
+
+    // Coroutine to make the guard turn 180 degrees
+    private IEnumerator Unstuck()
+    {
+        // Randomly choose whether to rotate left (-1) or right (1)
+        int rotationDirection = Random.Range(0, 2) == 0 ? -1 : 1;
+
+        // Randomly rotate the guard by a set amount within the min/max range
+        float randomRotation = Random.Range(minRotationAmount, maxRotationAmount) * rotationDirection;
+
+        // Calculate the target rotation
+        Quaternion targetRotation = Quaternion.Euler(0, transform.eulerAngles.y + randomRotation, 0);
+
+        // Smoothly rotate towards the target rotation
+        while (Quaternion.Angle(transform.rotation, targetRotation) > 0.1f) 
+        {
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            yield return null;
+        }
+
+        // Final adjustment to ensure exact target rotation
+        transform.rotation = targetRotation;
+
+        // Update the direction the guard is moving towards based on the new rotation
+        lastDirection = transform.forward;
     }
 }
